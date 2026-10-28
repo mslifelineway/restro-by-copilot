@@ -1,0 +1,12 @@
+node_modules
+dist
+.turbo
+.env
+coverage
+*.log
+.next
+next-env.d.ts
+*.tsbuildinfo
+test-results
+playwright-report
+apps/admin/e2e/.state.json

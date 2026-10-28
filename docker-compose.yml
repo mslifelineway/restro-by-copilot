@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: rms
+      POSTGRES_PASSWORD: rms
+      POSTGRES_DB: rms
+    ports:
+      - '5440:5432'
+    volumes:
+      - rms-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U rms -d rms']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6390:6379'
+  # Full stack in containers:  docker compose --profile app up --build
+  # (run migrations first:  docker compose run --rm api node dist/db/migrate.js && docker compose run --rm api node dist/db/seed.js)
+  api:
+    profiles: [app]
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    depends_on: { db: { condition: service_healthy } }
+    environment:
+      DATABASE_URL: postgres://rms_app:rms_app@db:5432/rms
+      DATABASE_OWNER_URL: postgres://rms:rms@db:5432/rms
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me}
+      TRUST_PROXY: '1'
+      PORT: '3100'
+      # production image requires an explicit mail transport; 'console' only logs emails (no real delivery)
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-console}
+      SMTP_URL: ${SMTP_URL:-}
+      ADMIN_URL: ${ADMIN_URL:-http://localhost:3001}
+    ports: ['3100:3100']
+  admin:
+    profiles: [app]
+    build: { context: ., dockerfile: apps/admin/Dockerfile }
+    depends_on: [api]
+    environment:
+      API_URL: http://api:3100
+    ports: ['3001:3001']
+volumes:
+  rms-db:

@@ -1,0 +1,24 @@
+{
+  "name": "rms",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@10.22.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "db:up": "docker compose up -d db",
+    "db:migrate": "pnpm --filter @rms/api db:migrate",
+    "db:seed": "pnpm --filter @rms/api db:seed",
+    "dev": "pnpm --filter @rms/api dev",
+    "e2e": "pnpm --filter @rms/admin e2e"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.0"
+  }
+}
