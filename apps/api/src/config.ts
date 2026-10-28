@@ -1,9 +1,17 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { parseEnv } from 'node:util';
 
-// Load repo-root .env when present (Node 22+), without adding a dotenv dependency.
-const envFile = resolve(__dirname, '../../../.env');
-if (existsSync(envFile)) process.loadEnvFile(envFile);
+// Load repo-root .env when present, without overriding variables supplied by the process.
+const envFile = [
+  resolve(__dirname, '../../../.env'),
+  resolve(process.cwd(), '../../.env'),
+].find(existsSync);
+if (envFile) {
+  for (const [name, value] of Object.entries(parseEnv(readFileSync(envFile, 'utf8')))) {
+    if (process.env[name] === undefined) process.env[name] = value;
+  }
+}
 
 const isProd = process.env.NODE_ENV === 'production';
 

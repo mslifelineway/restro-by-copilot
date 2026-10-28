@@ -1,7 +1,8 @@
 # RMS — Restaurant Management System
 
 Multi-tenant, offline-first SaaS. Source of truth for product scope: *RMS Master Product Document v2.0*
-(phases P0–P6). **Currently built: P0 (Foundation).** Do not start a later phase's features without being asked.
+(phases P0–P6). **Built: P0 plus partial P1 software workflows.** P1 remains in progress; follow the user's explicit
+P1 request and do not start P2+ features.
 
 App-specific rules live next to the code — read them before editing:
 - `apps/api/CLAUDE.md` — NestJS backend
@@ -30,7 +31,8 @@ packages/printer    ESC/POS builder + print spooler (pure TS) and a Node-only TC
 docs/               offline-sync design, spike status, ADRs
 ```
 Docker: `apps/api/Dockerfile`, `apps/admin/Dockerfile` (build from repo root), `docker compose --profile app up`.
-Planned (do not scaffold unprompted): `apps/qr-web` (customer PWA), `apps/pos` (React Native), `packages/sdk`.
+Planned (do not scaffold unprompted): `apps/qr-web` (customer PWA), `packages/sdk`. `apps/pos` is an Expo POS app with
+online order/billing workflows and an offline-sync spike; remaining POS/P1 gaps are documented in its README.
 
 ## Cross-cutting rules
 - **Monorepo:** all apps live here. Shared code goes in `packages/shared` — never copy types between apps.

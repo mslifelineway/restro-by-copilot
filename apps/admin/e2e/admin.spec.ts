@@ -65,6 +65,276 @@ test.describe('restaurant owner', () => {
     await expect(page.getByText('Outlets: 1 / 3')).toBeVisible();
   });
 
+  test('opens the offline sync inbox and explains the manual review behavior', async ({ page }) => {
+    const s = state();
+    await signInTenant(page, s.owner.email, s.owner.password);
+    await nav(page, 'Offline sync inbox').click();
+    await expect(page).toHaveURL(/\/sync-inbox$/);
+    await expect(page.getByRole('heading', { name: 'Offline sync inbox' })).toBeVisible();
+    await expect(page.getByText(/does not apply it to orders or payments/i)).toBeVisible();
+    await expect(page.getByText('No offline events in this status')).toBeVisible();
+  });
+
+  test('opens, adjusts, and closes a cashier shift, then shows it in the report', async ({ page }) => {
+    const s = state();
+    await signInTenant(page, s.owner.email, s.owner.password);
+    await nav(page, 'Cashier shifts').click();
+    await expect(page).toHaveURL(/\/cashier-shifts$/);
+    await expect(page.getByRole('heading', { name: 'Cashier shifts' })).toBeVisible();
+    await page.getByRole('button', { name: 'Open shift' }).click();
+    await page.getByLabel('Opening cash (paise)').fill('10000');
+    await page.getByRole('button', { name: 'Open shift' }).last().click();
+    await expect(page.getByRole('status')).toHaveText('Cashier shift opened.');
+
+    await page.getByRole('button', { name: 'Add cash adjustment' }).click();
+    await page.getByLabel('Amount (paise)').fill('0');
+    await page.getByLabel('Reason').fill('x');
+    await page.getByRole('button', { name: 'Record adjustment' }).click();
+    await expect(page.getByText('Enter an amount greater than zero in paise')).toBeVisible();
+    await page.getByLabel('Amount (paise)').fill('1500');
+    await page.getByLabel('Reason').fill('Float top-up');
+    await page.getByRole('button', { name: 'Record adjustment' }).click();
+    await expect(page.getByRole('status')).toHaveText('Cash adjustment recorded.');
+
+    await page.getByRole('button', { name: 'Close shift' }).click();
+    await page.getByLabel('Counted cash (paise)').fill('11500');
+    await page.getByRole('button', { name: 'Close shift' }).last().click();
+    await expect(page.getByRole('status')).toHaveText('Cashier shift closed.');
+    const closedShift = page.getByRole('row').filter({ hasText: 'CLOSED' });
+    await expect(closedShift.getByRole('cell', { name: '₹115.00' }).first()).toBeVisible();
+    await expect(closedShift.getByRole('cell', { name: '₹15.00' })).toBeVisible();
+    await expect(closedShift.getByRole('cell', { name: '₹0.00' }).first()).toBeVisible();
+  });
+
+  test('opens billing and validates invoice lookup input', async ({ page }) => {
+    const s = state();
+    await signInTenant(page, s.owner.email, s.owner.password);
+    await nav(page, 'Billing').click();
+    await expect(page).toHaveURL(/\/billing$/);
+    await expect(page.getByRole('heading', { name: 'Billing' })).toBeVisible();
+    await page.getByLabel('Service charge').selectOption('FIXED');
+    await page.getByLabel('Amount (paise)').fill('250');
+    await page.getByRole('button', { name: 'Save billing settings' }).click();
+    await expect(page.getByRole('status')).toHaveText('Billing settings saved.');
+    await page.getByLabel('Service charge').selectOption('NONE');
+    await page.getByRole('button', { name: 'Save billing settings' }).click();
+    await expect(page.getByRole('status')).toHaveText('Billing settings saved.');
+    await page.getByLabel('Invoice ID').fill('not-an-id');
+    await page.getByRole('button', { name: 'Load invoice' }).click();
+    await expect(alerts(page)).toContainText('Enter a valid invoice UUID');
+    await expect(page.getByText('No ready orders are available to invoice.')).toBeVisible();
+  });
+
+  test('prints a loaded invoice from its printable invoice view', async ({ page }) => {
+    const s = state();
+    const invoiceId = 'c0d3a3b0-60b0-4b6a-9c08-2dc3eb55dc90';
+    await page.addInitScript(() => {
+      window.print = () => window.localStorage.setItem('invoice-print-invoked', 'yes');
+    });
+    await page.route(`**/api/bff/v1/invoices/${invoiceId}`, (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        statusCode: 200,
+        message: 'Invoice fetched successfully',
+        data: {
+          id: invoiceId,
+          invoiceNumber: '26-27/A/000001',
+          tenantName: 'E2E Restaurant',
+          outletName: 'Main Outlet',
+          outletGstin: '22AAAAA0000A1Z5',
+          taxableAmount: '10000',
+          cgstAmount: '250',
+          sgstAmount: '250',
+          igstAmount: '0',
+          totalTax: '500',
+          discountType: null,
+          discountValue: '0',
+          discountAmount: '0',
+          serviceChargeAmount: '0',
+          serviceChargeTaxableAmount: '0',
+          serviceChargeTax: '0',
+          serviceChargeTaxCode: null,
+          tipAmount: '0',
+          roundOffAmount: '0',
+          totalAmount: '10500',
+          paidAmount: '0',
+          balanceAmount: '10500',
+          paymentStatus: 'UNPAID',
+          isVoided: false,
+          createdAt: '2026-04-04T10:00:00.000Z',
+          lines: [{
+            id: 'b6f29177-ad77-4fc6-8a99-2868a429c61d',
+            itemName: 'Paneer Tikka',
+            variantName: 'Full',
+            quantity: 1,
+            discountAmount: '0',
+            taxableAmount: '10000',
+            totalTax: '500',
+            totalAmount: '10500',
+          }],
+          payments: [],
+          refunds: [],
+          void: null,
+        },
+        timestamp: '2026-04-04T10:00:00.000Z',
+        path: `/api/v1/invoices/${invoiceId}`,
+        requestId: '4a860c43-334c-4980-a8c0-6a67d0ca0bf8',
+      }),
+    }));
+    await signInTenant(page, s.owner.email, s.owner.password);
+    await nav(page, 'Billing').click();
+    await page.getByLabel('Invoice ID').fill(invoiceId);
+    await page.getByRole('button', { name: 'Load invoice' }).click();
+    await expect(page.getByText('Paneer Tikka · Full')).toBeVisible();
+    await page.getByRole('button', { name: 'Print invoice' }).click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('invoice-print-invoked'))).toBe('yes');
+  });
+
+  test('manages menu categories, tax slabs, items, and variants', async ({ page }) => {
+    const s = state();
+    await signInTenant(page, s.owner.email, s.owner.password);
+    await nav(page, 'Menu').click();
+    await expect(page).toHaveURL(/\/menu$/);
+    await expect(page.getByRole('heading', { name: 'Menu', exact: true })).toBeVisible();
+
+    await page.getByLabel('Category name').fill('E2E Menu Category');
+    await page.getByRole('button', { name: 'Add category' }).click();
+    await expect(page.getByRole('status')).toHaveText('Category created.');
+    await page.getByRole('button', { name: 'Deactivate' }).click();
+    await expect(page.getByText('E2E Menu Category · inactive')).toBeVisible();
+    await page.getByRole('button', { name: 'Activate' }).click();
+
+    await page.getByLabel('Tax code').fill('GST_E2E');
+    await page.getByLabel('CGST rate (basis points)').fill('900');
+    await page.getByLabel('SGST rate (basis points)').fill('900');
+    await page.getByLabel('IGST rate (basis points)').fill('1800');
+    await page.getByRole('button', { name: 'Add tax slab' }).click();
+    await expect(page.getByRole('status')).toHaveText('Tax slab created.');
+
+    await page.getByLabel('Item name').fill('E2E Paneer Tikka');
+    await page.locator('select').nth(1).selectOption({ label: 'E2E Menu Category' });
+    await page.locator('select').nth(2).selectOption({ label: 'GST_E2E · GST 18.00%' });
+    await page.getByRole('button', { name: 'Add menu item' }).click();
+    await expect(page.getByRole('status')).toContainText('Menu item created');
+    await page.getByRole('row').filter({ hasText: 'E2E Paneer Tikka' }).getByRole('button', { name: 'Edit' }).click();
+    await page.getByLabel('Description (optional)').fill('Updated item details');
+    await page.getByRole('button', { name: 'Update menu item' }).click();
+    await expect(page.getByRole('status')).toHaveText('Menu item updated.');
+    await page.getByLabel('Variant name').fill('Regular');
+    await page.getByLabel('Base price (paise)').fill('25000');
+    await page.getByRole('button', { name: 'Add variant' }).click();
+    await expect(page.getByRole('status')).toHaveText('Variant created.');
+    await page.getByRole('row').filter({ hasText: 'Regular' }).getByRole('button', { name: 'Edit' }).click();
+    await page.getByLabel('Base price (paise)').fill('27500');
+    await page.getByRole('button', { name: 'Update variant' }).click();
+    await expect(page.getByRole('status')).toHaveText('Variant updated.');
+    await expect(page.getByRole('row').filter({ hasText: 'Regular' })).toContainText('27500');
+    await expect(page.getByRole('row').filter({ hasText: 'E2E Paneer Tikka' })).toContainText('Available');
+  });
+
+  test('manages floor tables and their availability', async ({ page }) => {
+    const s = state();
+    await signInTenant(page, s.owner.email, s.owner.password);
+    await nav(page, 'Floor & tables').click();
+    await expect(page).toHaveURL(/\/floor$/);
+    await page.getByLabel('Table code').fill('E2E_01');
+    await page.getByLabel('Table name').fill('E2E Table');
+    await page.getByRole('textbox', { name: 'Section' }).fill('Patio');
+    await page.getByRole('button', { name: 'Add table' }).click();
+    await expect(page.getByRole('status')).toHaveText('Table added.');
+    const table = page.locator('div.rounded-lg.border.bg-card').filter({ has: page.getByRole('heading', { name: 'E2E Table' }) });
+    await table.getByRole('button', { name: 'Edit' }).click();
+    await page.getByLabel('Table name').fill('E2E Patio Table');
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByRole('status')).toHaveText('Table details updated.');
+    const updatedTable = page.locator('div.rounded-lg.border.bg-card').filter({ has: page.getByRole('heading', { name: 'E2E Patio Table' }) });
+    await updatedTable.getByRole('button', { name: 'Reserve' }).click();
+    await expect(page.getByRole('status')).toHaveText('Table status updated.');
+    await expect(updatedTable).toContainText('RESERVED');
+    await updatedTable.getByRole('button', { name: 'Mark available' }).click();
+    await expect(page.getByRole('status')).toHaveText('Table status updated.');
+    await updatedTable.getByRole('button', { name: 'Remove' }).click();
+    await expect(page.getByRole('status')).toHaveText('Table removed.');
+  });
+
+  test('opens the daily sales report with outlet business date', async ({ page }) => {
+    const s = state();
+    await signInTenant(page, s.owner.email, s.owner.password);
+    await nav(page, 'Sales reports').click();
+    await expect(page).toHaveURL(/\/reports$/);
+    await expect(page.getByRole('heading', { name: 'Daily sales report' })).toBeVisible();
+    await expect(page.getByText(/Business date \d{4}-\d{2}-\d{2} ·/)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Sales by item & category' })).toBeVisible();
+    await expect(page.getByText('No invoices for this date.')).toBeVisible();
+  });
+
+  test('creates an inventory item and supplier, then partially receives a purchase order', async ({ page }) => {
+    const s = state();
+    await signInTenant(page, s.owner.email, s.owner.password);
+    await nav(page, 'Inventory & purchasing').click();
+    await expect(page).toHaveURL(/\/purchasing$/);
+    await expect(page.getByRole('heading', { name: 'Inventory & purchasing' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'New inventory item' }).click();
+    await page.getByLabel('Item name').fill('x');
+    await page.getByRole('button', { name: 'Create item' }).click();
+    await expect(page.getByText('Enter at least 2 characters')).toBeVisible();
+    await page.getByLabel('Item name').fill('E2E Rice');
+    await page.getByLabel('Reorder level').fill('2');
+    await page.getByRole('button', { name: 'Create item' }).click();
+    await expect(page.getByRole('status')).toHaveText('Inventory item created.');
+
+    await page.getByRole('button', { name: 'New supplier' }).click();
+    await page.getByLabel('Supplier name').fill('E2E Foods');
+    await page.getByRole('button', { name: 'Save supplier' }).click();
+    await expect(page.getByRole('status')).toHaveText('Supplier created.');
+
+    await page.getByRole('button', { name: 'New purchase order' }).click();
+    await page.getByLabel('Supplier').selectOption({ label: 'E2E Foods' });
+    await page.getByLabel('Item 1').selectOption({ label: 'E2E Rice (KG)' });
+    await page.getByLabel('Quantity').fill('10');
+    await page.getByLabel('Unit cost (paise)').fill('5000');
+    await page.getByRole('button', { name: 'Create purchase order' }).click();
+    await expect(page.getByRole('status')).toHaveText('Purchase order created.');
+    const orderRow = page.getByRole('row').filter({ hasText: 'E2E Foods' });
+    await expect(orderRow).toContainText('ORDERED');
+
+    await orderRow.getByRole('button', { name: 'Receive' }).click();
+    await page.getByLabel(/E2E Rice — 0.000 received, 10.000 remaining/).fill('3');
+    await page.getByRole('button', { name: 'Record receipt' }).click();
+    await expect(page.getByRole('status')).toHaveText('Stock receipt recorded.');
+    await expect(orderRow).toContainText('PARTIALLY RECEIVED');
+    await expect(orderRow).toContainText('3.000 / 10.000');
+
+    await orderRow.getByRole('button', { name: 'Receive' }).click();
+    await page.getByLabel(/E2E Rice — 3.000 received, 7.000 remaining/).fill('7');
+    await page.getByRole('button', { name: 'Record receipt' }).click();
+    await expect(page.getByRole('status')).toHaveText('Stock receipt recorded.');
+    await expect(orderRow).toContainText('RECEIVED');
+    await expect(page.getByRole('cell', { name: '10.000' }).first()).toBeVisible();
+
+    await nav(page, 'Inventory').click();
+    await expect(page).toHaveURL(/\/inventory$/);
+    await expect(page.getByRole('heading', { name: 'Inventory' })).toBeVisible();
+    await page.getByLabel('Inventory item').selectOption({ label: 'E2E Rice (KG)' });
+    await page.getByLabel('Direction').selectOption('OUT');
+    await page.getByLabel('Quantity').fill('1');
+    await page.getByLabel('Reason').selectOption('WASTE');
+    await page.getByRole('button', { name: 'Record movement' }).click();
+    await expect(page.getByRole('status')).toHaveText('Stock movement recorded.');
+    await expect(page.getByRole('row').filter({ hasText: 'E2E Rice' })).toContainText('9.000 KG');
+
+    await page.getByLabel('Menu item').selectOption({ label: 'E2E Paneer Tikka' });
+    await page.getByRole('button', { name: 'Add ingredient' }).click();
+    await page.getByLabel('Ingredient 1').selectOption({ label: 'E2E Rice (KG)' });
+    await page.getByLabel('Quantity per menu item').fill('0.100');
+    await page.getByRole('button', { name: 'Save recipe' }).click();
+    await expect(page.getByRole('status')).toHaveText('Recipe saved.');
+    await expect(page.getByLabel('Ingredient 1')).toHaveValue(await page.getByLabel('Inventory item').inputValue());
+  });
+
   test('creates an outlet, sees validation, and usage updates', async ({ page }) => {
     const s = state();
     await signInTenant(page, s.owner.email, s.owner.password);
@@ -152,6 +422,7 @@ test.describe('cashier (limited role)', () => {
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(nav(page, 'Users')).toHaveCount(0);
     await expect(nav(page, 'Roles & permissions')).toHaveCount(0);
+    await expect(nav(page, 'Inventory & purchasing')).toHaveCount(0);
     await expect(nav(page, 'Account')).toBeVisible();
     await page.goto('/users'); // direct URL: page loads, API denies
     await expect(alerts(page)).toContainText(/permission/i);

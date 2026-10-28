@@ -2,9 +2,11 @@
 
 Two consoles in one app, chosen by who signs in (the login page has a Restaurant / Platform admin switch):
 - **Platform console** (`(console)` route group): tenants, plans & feature matrix, kill switch, flag history.
-- **Restaurant console** (`(tenant)` route group, P0 scope): overview, settings, outlets, users (roles, PIN, disable, force sign-out), roles & permissions, devices, subscription/usage, audit log, account (change password + own sessions).
+- **Restaurant console** (`(tenant)` route group): overview, settings, outlets, users (roles, PIN, disable, force sign-out), roles & permissions, devices, menu and tax setup, floor tables, inventory/recipes, cashier shifts, daily sales reports, billing, offline sync inbox, subscription/usage, audit log, account (change password + own sessions).
 Public pages (no session): `/login`, `/forgot-password`, `/reset-password` — list them in `middleware.ts` `PUBLIC` if you add more.
-Not built (later phases): menu, POS, orders, inventory screens; billing/payment screens.
+Built P1 UI slices: menu categories/tax/items/variants/modifiers/CSV, floor table setup/availability/order timers, inventory movements/recipes, daily sales reports, cashier shifts, suppliers/purchase orders/receipts, sync-inbox review, and invoice/payment/refund controls. The billing screen can configure outlet service charges, finalize discounts and tips, and reprint invoice details through the browser print dialog. The Expo POS supports online catalog-backed orders, KOT submission, table transfers/joins, per-order waiter assignment, invoice finalization with discounts/tips, payments, same-outlet ready-order bill merging and quantity-based bill splitting, plus a separate local sync spike.
+
+The software billing adjustments are implemented. Physical printer/device acceptance remains unverified because hardware and native toolchains are unavailable. Offline sync remains a manual-review inbox, not live order replay.
 
 ## Commands
 ```bash
@@ -25,7 +27,7 @@ src/
     login/                         public login page
     (console)/                     PLATFORM shell + pages: tenants, tenants/new, tenants/[id], features, flag-history, account
     forgot-password/, reset-password/  public recovery pages (talk to /api/auth/forgot-password|reset-password BFF routes)
-    (tenant)/                      RESTAURANT shell + pages: dashboard, settings, outlets, users, roles, devices, subscription, audit-log, security
+    (tenant)/                      RESTAURANT shell + pages: dashboard, settings, outlets, users, roles, devices, menu, floor, inventory, reports, billing, cashier shifts, purchasing, sync inbox, subscription, audit-log, security
     api/auth/{login,logout}/       BFF auth: sets/clears the httpOnly session cookie
     api/bff/[...path]/             authenticated proxy -> Nest /api/*  (browser never sees the token)
   components/ui/                   shadcn-style primitives (button, input, card, badge, table)

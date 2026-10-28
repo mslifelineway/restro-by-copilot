@@ -8,9 +8,13 @@ export const PERMISSIONS = [
   'subscription:read',
   'audit:read',
   'menu:read', 'menu:edit', 'menu:edit_price', 'menu:publish',
+  'table:read', 'table:manage',
+  'kot:manage',
   'bill:create', 'bill:void', 'bill:reprint', 'discount:apply', 'refund:create',
-  'order:create', 'order:cancel',
-  'inventory:read', 'inventory:adjust',
+  'order:read', 'order:create', 'order:cancel', 'kot:read',
+  'inventory:read', 'inventory:adjust', 'shift:read', 'shift:manage',
+  'printer:read', 'printer:manage',
+  'sync:push', 'sync:pull',
   'report:read', 'report:export',
 ] as const;
 
@@ -32,11 +36,11 @@ export const SYSTEM_ROLES: Record<SystemRoleName, { permissions: Permission[]; l
     permissions: ALL.filter((p) => !['tenant:update', 'role:manage', 'subscription:read'].includes(p)),
   },
   Cashier: {
-    permissions: ['menu:read', 'bill:create', 'bill:reprint', 'discount:apply', 'refund:create', 'order:create', 'report:read'],
+    permissions: ['menu:read', 'table:read', 'bill:create', 'bill:reprint', 'discount:apply', 'refund:create', 'order:read', 'order:create', 'shift:read', 'shift:manage', 'printer:read', 'report:read', 'sync:push', 'sync:pull'],
     limits: { 'discount:apply': { maxPercent: 10 }, 'refund:create': { maxAmountPaise: 50000 } },
   },
-  Waiter: { permissions: ['menu:read', 'order:create'] },
-  Chef: { permissions: ['menu:read', 'inventory:read'] },
+  Waiter: { permissions: ['menu:read', 'table:read', 'order:read', 'order:create', 'sync:push', 'sync:pull'] },
+  Chef: { permissions: ['menu:read', 'inventory:read', 'kot:read', 'kot:manage', 'printer:read', 'sync:pull'] },
   Storekeeper: { permissions: ['inventory:read', 'inventory:adjust', 'menu:read'] },
   Accountant: { permissions: ['report:read', 'report:export', 'audit:read', 'subscription:read'] },
 };

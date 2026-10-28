@@ -41,6 +41,7 @@ async function proxy(req: Request, { params }: { params: Promise<{ path: string[
     headers: {
       authorization: `Bearer ${access}`,
       ...forwardHeaders(req),
+      ...(req.headers.get('x-outlet-id') ? { 'x-outlet-id': req.headers.get('x-outlet-id')! } : {}),
       ...(hasBody ? { 'content-type': 'application/json' } : {}),
       ...(req.headers.get('x-request-id') ? { 'x-request-id': req.headers.get('x-request-id')! } : {}),
       ...(req.headers.get('idempotency-key') ? { 'idempotency-key': req.headers.get('idempotency-key')! } : {}),

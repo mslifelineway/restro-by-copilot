@@ -14,9 +14,11 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<ApiSuccess<T>> {
+  const headers = new Headers(init.headers);
+  if (init.body && !headers.has('content-type')) headers.set('content-type', 'application/json');
   const res = await fetch(`/api/bff${path}`, {
     ...init,
-    headers: { ...(init.body ? { 'content-type': 'application/json' } : {}), ...init.headers },
+    headers,
   });
   const body = await res.json().catch(() => null);
   if (!res.ok || !body?.success) {
@@ -30,14 +32,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<ApiSucc
 const json = (b: unknown) => JSON.stringify(b);
 
 export const api = {
-  get: async <T>(p: string) => (await request<T>(p)).data,
-  post: async <T>(p: string, b: unknown) => (await request<T>(p, { method: 'POST', body: json(b) })).data,
-  put: async <T>(p: string, b: unknown) => (await request<T>(p, { method: 'PUT', body: json(b) })).data,
-  patch: async <T>(p: string, b: unknown) => (await request<T>(p, { method: 'PATCH', body: json(b) })).data,
-  delete: async <T>(p: string) => (await request<T>(p, { method: 'DELETE' })).data,
+  get: async <T>(p: string, headers?: HeadersInit) => (await request<T>(p, { headers })).data,
+  post: async <T>(p: string, b: unknown, headers?: HeadersInit) => (await request<T>(p, { method: 'POST', body: json(b), headers })).data,
+  put: async <T>(p: string, b: unknown, headers?: HeadersInit) => (await request<T>(p, { method: 'PUT', body: json(b), headers })).data,
+  patch: async <T>(p: string, b: unknown, headers?: HeadersInit) => (await request<T>(p, { method: 'PATCH', body: json(b), headers })).data,
+  delete: async <T>(p: string, headers?: HeadersInit) => (await request<T>(p, { method: 'DELETE', headers })).data,
   /** For paginated endpoints: returns rows plus meta.pagination. */
-  list: async <T>(p: string): Promise<{ items: T[]; pagination: Pagination }> => {
-    const r = await request<T[]>(p);
+  list: async <T>(p: string, headers?: HeadersInit): Promise<{ items: T[]; pagination: Pagination }> => {
+    const r = await request<T[]>(p, { headers });
     return { items: r.data, pagination: r.meta!.pagination! };
   },
 };

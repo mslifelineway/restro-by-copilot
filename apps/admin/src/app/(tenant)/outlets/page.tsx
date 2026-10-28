@@ -39,7 +39,13 @@ function OutletForm({ outlet, onDone }: { outlet?: Outlet; onDone: () => void })
       const { code: _code, ...patch } = body; // code is immutable
       return api.patch(`/v1/outlets/${outlet.id}`, patch);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['outlets'] }); qc.invalidateQueries({ queryKey: ['subscription'] }); onDone(); },
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['outlets'] }),
+        qc.invalidateQueries({ queryKey: ['subscription'] }),
+      ]);
+      onDone();
+    },
     onError: (e) => setErr(applyServerErrors(e, setError)),
   });
   return (
