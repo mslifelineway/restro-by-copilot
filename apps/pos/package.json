@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@expo/metro-runtime": "~58.0.15",
     "@op-engineering/op-sqlite": "^19.0.1",
     "@rms/shared": "workspace:*",
     "expo": "~58.0.20",
@@ -10,7 +11,9 @@
     "expo-secure-store": "~58.0.2",
     "expo-status-bar": "~58.0.4",
     "react": "19.3.0",
-    "react-native": "0.88.0"
+    "react-dom": "19.3.0",
+    "react-native": "0.88.0",
+    "react-native-web": "^0.21.4"
   },
   "devDependencies": {
     "@types/react": "~19.3.0",
